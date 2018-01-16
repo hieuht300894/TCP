@@ -17,48 +17,52 @@ namespace Client
 
         public static void Main()
         {
+            Start();
+            Console.Read();
+        }
+
+        static void Start()
+        {
             try
             {
                 TcpClient client = new TcpClient();
 
                 // 1. connect
+                Console.WriteLine("Waiting to connect to server...");
                 client.Connect(AddressIP, PortNumber);
                 Stream stream = client.GetStream();
                 StreamReader reader = new StreamReader(stream);
                 StreamWriter writer = new StreamWriter(stream) { AutoFlush = true };
 
-                Console.WriteLine($"Client started on {((IPEndPoint)client.Client.LocalEndPoint).ToString()}");
-                Console.WriteLine($"Connected to {((IPEndPoint)client.Client.RemoteEndPoint).ToString()}");
+                string local = ((IPEndPoint)client.Client.LocalEndPoint).ToString();
+                string remote = ((IPEndPoint)client.Client.RemoteEndPoint).ToString();
+                Console.WriteLine($"Client started on {local}");
+                Console.WriteLine($"Connected to {remote}");
 
-                while (true)
+                while (client.Connected)
                 {
                     // 2. send
-                    Console.Write("Enter your name: ");
+                    Console.Write("Enter your message: ");
                     string strSend = Console.ReadLine().TrimEnd('\0');
-                    writer.WriteLine(strSend);
+                    writer.WriteLineAsync(strSend);
 
                     if (strSend.ToLower().StartsWith("break"))
                         break;
 
                     // 3. receive
-                    string strRead = reader.ReadLine().TrimEnd('\0');
-                    Console.WriteLine($"Received: {strRead}");
+                    string strRead = reader.ReadLine();
+                    Console.WriteLine($"Received: {strRead.TrimEnd('\0')}");
                 }
 
                 // 4. Close    
-                Console.WriteLine($"Disconnected to {((IPEndPoint)client.Client.RemoteEndPoint).ToString()}");
+                Console.WriteLine($"Disconnected to {remote}");
                 stream.Close();
                 client.Close();
-                Console.Read();
             }
-
             catch (Exception ex)
             {
-                //Console.WriteLine("Error: " + ex);
-                Main();
+                Start();
             }
-
-            Console.Read();
         }
     }
 }
