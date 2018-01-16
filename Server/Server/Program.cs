@@ -15,7 +15,8 @@ namespace Server
         public static int BufferSize = 1024;
         public static int PortNumber = 9999;
         public static IPAddress AddressIP = IPAddress.Parse("127.0.0.1");
-        public static Dictionary<string, TcpClient> lstClients = new Dictionary<string, TcpClient>();
+        public static Dictionary<string, TcpClient> dClients = new Dictionary<string, TcpClient>();
+        public static TcpListener listener = new TcpListener(AddressIP, PortNumber);
 
         static void Main(string[] args)
         {
@@ -27,8 +28,6 @@ namespace Server
         {
             try
             {
-                TcpListener listener = new TcpListener(AddressIP, PortNumber);
-
                 // 1. listen
                 listener.Start();
                 Console.WriteLine($"Server started on {((IPEndPoint)listener.LocalEndpoint).ToString()}");
@@ -61,43 +60,27 @@ namespace Server
                 socket.Close();
                 listener.Stop();
             }
-            catch (Exception ex)
-            {
-                Start1();
-            }
-
-            Console.Read();
+            catch { }
         }
 
         static void Start2()
         {
             try
             {
-                TcpListener listener = new TcpListener(AddressIP, PortNumber);
-
-                // 1. listen
                 listener.Start();
                 Console.WriteLine($"Server started on {((IPEndPoint)listener.LocalEndpoint).ToString()}");
-                Console.WriteLine("Waiting for a connection...");
+                Console.WriteLine("Waiting for connections...");
 
-                while (true)
-                {
-                    TcpClient client = listener.AcceptTcpClient();
-                    lstClients.Add(((IPEndPoint)client.Client.RemoteEndPoint).ToString(), client);
-                    ThreadPool.QueueUserWorkItem(ThreadProc, client);
-                    if (lstClients.Count == 0)
-                        break;
-                }
-
-                listener.Stop();
+                start:
+                TcpClient client = listener.AcceptTcpClient();
+                dClients.Add(((IPEndPoint)client.Client.RemoteEndPoint).ToString(), client);
+                ThreadPool.QueueUserWorkItem(CreateAConnection, client);
+                goto start;
             }
-            catch (Exception ex)
-            {
-                Start2();
-            }
+            catch { }
         }
 
-        static void ThreadProc(object obj)
+        static void CreateAConnection(object obj)
         {
             try
             {
@@ -112,25 +95,43 @@ namespace Server
                 while (client.Connected)
                 {
                     // 2. receive
-                    string strReceive = reader.ReadLine().TrimEnd('\0');
-                    Console.WriteLine($"Received from {remote}: {strReceive}");
+                    string strReceive = reader.ReadLineAsync().Result;
+                    Console.WriteLine($"Received from {remote}: {strReceive.TrimEnd('\0')}");
 
                     if (strReceive.ToLower().StartsWith("break"))
                         break;
 
                     // 3. send
                     string strSend = $"Hello {strReceive}";
-                    writer.WriteLine(strSend);
                     Console.WriteLine($"Sended to {remote}: {strSend}");
+                    writer.WriteLineAsync(strSend);
                 }
 
                 // 4. close
-                lstClients.Remove(remote);
                 Console.WriteLine($"Disconnection received from {remote}");
                 stream.Close();
                 client.Close();
             }
             catch { }
+            finally { RemoveDisconnections(); }
+
+        }
+
+        static void RemoveDisconnections()
+        {
+            for (int i = dClients.Count - 1; i >= 0; i--)
+            {
+                var dClient = dClients.ToList()[i];
+                if (!dClient.Value.Connected)
+                    dClients.Remove(dClient.Key);
+
+                if (dClients.Count == 0)
+                {
+                    Console.WriteLine("No connection...");
+                    listener.Server.Shutdown(SocketShutdown.Both);
+                    listener.Stop();
+                }
+            }
         }
     }
 }
