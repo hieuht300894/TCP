@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Client
@@ -12,8 +13,11 @@ namespace Client
     class Program
     {
         public static int BufferSize = 1024;
-        public static int PortNumber = 9999;
-        public static IPAddress AddressIP = IPAddress.Parse("127.0.0.1");
+        public static int ServerPortNumber = 9999;
+        public static int ClientPortNumber = 4001;
+        public static IPAddress ServerIPAddress = IPAddress.Parse("127.0.0.1");
+        public static IPAddress ClientIPAddress = IPAddress.Parse("127.0.0.1");
+        public static TcpClient client;
 
         public static void Main()
         {
@@ -25,11 +29,12 @@ namespace Client
         {
             try
             {
-                TcpClient client = new TcpClient();
+                client = new TcpClient(new IPEndPoint(ClientIPAddress, ClientPortNumber));
 
                 // 1. connect
                 Console.WriteLine("Waiting to connect to server...");
-                client.Connect(AddressIP, PortNumber);
+                client.Connect(ServerIPAddress, ServerPortNumber);
+
                 Stream stream = client.GetStream();
                 StreamReader reader = new StreamReader(stream);
                 StreamWriter writer = new StreamWriter(stream) { AutoFlush = true };
@@ -41,17 +46,15 @@ namespace Client
 
                 while (client.Connected)
                 {
-                    // 2. send
-                    Console.Write("Enter your message: ");
-                    string strSend = Console.ReadLine().TrimEnd('\0');
-                    writer.WriteLineAsync(strSend);
-
-                    if (strSend.ToLower().StartsWith("break"))
-                        break;
-
-                    // 3. receive
                     string strRead = reader.ReadLine();
                     Console.WriteLine($"Received: {strRead.TrimEnd('\0')}");
+
+                    if (!string.IsNullOrWhiteSpace(strRead))
+                    {
+                        Console.WriteLine("Enter your message: ");
+                        string strSend = string.Empty;
+                        writer.WriteLine(strSend);
+                    }
                 }
 
                 // 4. Close    
@@ -61,6 +64,7 @@ namespace Client
             }
             catch (Exception ex)
             {
+                client.Close();
                 Start();
             }
         }
