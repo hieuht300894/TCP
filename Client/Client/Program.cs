@@ -43,6 +43,7 @@ namespace Client
                 Console.WriteLine($"Connected to {remote}");
 
                 writer.WriteLine(clsGeneral.fKey.Ping.ToString());
+
                 while (PingNetwork(ServerHost))
                 {
                     string strRead = reader.ReadLine();
@@ -51,6 +52,8 @@ namespace Client
                         strRead = strRead.Trim('\0');
                         Console.WriteLine($"Received: {strRead}");
                     }
+
+                    writer.WriteLine(clsGeneral.fKey.Ping.ToString());
                 }
 
                 // 4. Close    
