@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -13,10 +14,8 @@ namespace Client
     class Program
     {
         public static int BufferSize = 1024;
-        public static int ServerPortNumber = 9999;
-        public static int ClientPortNumber = 4001;
-        public static IPAddress ServerIPAddress = IPAddress.Parse("127.0.0.1");
-        public static IPAddress ClientIPAddress = IPAddress.Parse("127.0.0.1");
+        public static IPEndPoint ServerHost = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9999);
+        public static IPEndPoint ClientHost = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 4001);
         public static TcpClient client;
 
         public static void Main()
@@ -29,11 +28,10 @@ namespace Client
         {
             try
             {
-                client = new TcpClient(new IPEndPoint(ClientIPAddress, ClientPortNumber));
+                client = new TcpClient(ClientHost);
 
-                // 1. connect
                 Console.WriteLine("Waiting to connect to server...");
-                client.Connect(ServerIPAddress, ServerPortNumber);
+                client.Connect(ServerHost);
 
                 Stream stream = client.GetStream();
                 StreamReader reader = new StreamReader(stream);
@@ -44,16 +42,14 @@ namespace Client
                 Console.WriteLine($"Client started on {local}");
                 Console.WriteLine($"Connected to {remote}");
 
-                while (client.Connected)
+                writer.WriteLine(clsGeneral.fKey.Ping.ToString());
+                while (PingNetwork(ServerHost))
                 {
                     string strRead = reader.ReadLine();
-                    Console.WriteLine($"Received: {strRead.TrimEnd('\0')}");
-
                     if (!string.IsNullOrWhiteSpace(strRead))
                     {
-                        Console.WriteLine("Enter your message: ");
-                        string strSend = string.Empty;
-                        writer.WriteLine(strSend);
+                        strRead = strRead.Trim('\0');
+                        Console.WriteLine($"Received: {strRead}");
                     }
                 }
 
@@ -67,6 +63,16 @@ namespace Client
                 client.Close();
                 Start();
             }
+        }
+        static bool PingNetwork(IPEndPoint iP)
+        {
+            Ping ping = new Ping();
+            PingReply reply = ping.Send(iP.Address, 1000, new byte[32], new PingOptions(128, true));
+            if (reply == null)
+                return false;
+            if (reply.Status == IPStatus.Success)
+                return true;
+            return false;
         }
     }
 }
